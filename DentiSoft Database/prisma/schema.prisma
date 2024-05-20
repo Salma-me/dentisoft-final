@@ -1,0 +1,254 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// -----------------------Changes record-------------------------------
+// PatientSSN of type String is REPLACED by patientID of type Int.
+// More fields added for Treatment, Diagnosis
+// Medications model added (related to the Treatment model)..each treatment plan could require more than one medication
+// *imagingResults is related to a specific diagnosis record*--not sure about it--
+// ---------------------------Notes------------------------------------
+// the imaging techniques commonly used in dental clinics include X-rays of various types
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Patient {
+  patientID           Int                   @id @default(autoincrement())
+  PatientSSN          String                @unique
+  fName               String
+  lName               String
+  birthDate           DateTime
+  age                 Int
+  gender              String
+  city                String
+  street              String
+  phone               String
+  email               String
+  Smoker              Boolean
+  alcoholIntake       Boolean
+  patientProfile      ProfileLogin?
+  foodAllergies       FoodAllergies[]
+  medicationAllergies MedicationAllergies[]
+  treatmentPlan       Treatment[]
+  imagingResults      ImagingResults[]
+  MedicalConditions   Diagnosis[]
+  invoicesPaid        Invoice[]
+  visits              Visit[]
+  procedures          Procedure[]
+}
+
+model MedicationAllergies {
+  medicationAllergies String
+  MedicationAllergies Patient @relation(fields: [patientId], references: [patientID])
+  patientId           Int     @unique
+}
+
+model FoodAllergies {
+  foodAllergies String
+  FoodAllergies Patient @relation(fields: [patientId], references: [patientID])
+  patientId     Int     @unique
+}
+
+model Diagnosis {
+  DiagnosisID       Int     @id @default(autoincrement())
+  AffectedArea      String //Maxillary Anterior, Mandibular Molars, Right Premolars, Left Canines,...
+  diagnosis         String //Dental Caries (Cavity), Gingivitis, Periodontitis, Malocclusion, Abscess
+  Description       String
+  diagnosedDate     DateTime @default(now())
+  imagingResults    ImagingResults[]
+  MedicalConditions Patient  @relation(fields: [patientId], references: [patientID])
+  patientId         Int      @unique
+  Diagnose          Dentist  @relation(fields: [DentistSsn], references: [DentistSSN])
+  DentistSsn        String   @unique
+}
+
+model Treatment {
+  TreatmentID    Int     @id @default(autoincrement())
+  TreatmentType  String //fillings, extractions, cleanings,...
+  Description    String
+  Cost           Float
+  StartDate      DateTime
+  EndDate        DateTime
+  Status         String //Ongoing, completed  (could be derived from StartDate and EndDate)
+  Medications    Medications[]
+  TreatmentPlans Patient  @relation(fields: [patientId], references: [patientID])
+  patientId      Int      @unique
+  prescribe      Dentist  @relation(fields: [DentistSsn], references: [DentistSSN])
+  DentistSsn     String   @unique
+}
+
+model Medications {
+  id                     Int       @id @default(autoincrement())
+  name                   String
+  dosage                 Float
+  DosageUnit             String //ml, pills, gm
+  frequency              String //e.g. 3 times (a day, a week, every -- hrs,..)
+  MedicationsInTreatment Treatment @relation(fields: [TreatmentId], references: [TreatmentID])
+  TreatmentId            Int       @unique
+}
+
+model ImagingResults {
+  id              Int   @id @default(autoincrement())
+  date            DateTime
+  type            String // X-Rays => Periapical, Bitewing, Cone Beam Computed Tomography (CBCT), Panoramic
+  imageUrl        String
+  DentistComments String
+  ImagingResults  Patient  @relation(fields: [patientId], references: [patientID])
+  patientId       Int      @unique
+  DiagnosisImagingResults  Diagnosis  @relation(fields: [DiagnosisId], references: [DiagnosisID])
+  DiagnosisId     Int      @unique
+}
+
+model Dentist {
+  DentistSSN        String                @id @unique
+  fName             String
+  lName             String
+  birthDate         DateTime
+  age               Int
+  gender            String
+  city              String
+  street            String
+  phone             String
+  email             String
+  specialization    String
+  dentistProfile    ProfileLogin?
+  workingDays       DentistWorkingDays[] //(e.g., "Monday", "Tuesday", etc.).
+  workingHours      DentistWorkingHours[] //"9:00 AM - 1:00 PM", "2:00 PM - 6:00 PM", etc
+  yearsOfExperience Int
+  visits            Visit[]
+  procedures        Procedure[]
+  diagnosis         Diagnosis[]
+  prescription      Treatment[]
+}
+
+model DentistWorkingDays {
+  day         String
+  WorkingDays Dentist @relation(fields: [DentistSsn], references: [DentistSSN])
+  DentistSsn  String  @unique
+}
+
+model DentistWorkingHours {
+  shift        String
+  WorkingHours Dentist @relation(fields: [DentistSsn], references: [DentistSSN])
+  DentistSsn   String  @unique
+}
+
+model Employee {
+  EmployeeSSN     String                 @id @unique
+  fName           String
+  lName           String
+  position        String //Here we go again -_-
+  birthDate       DateTime
+  age             Int
+  gender          String
+  city            String
+  street          String
+  phone           String
+  email           String
+  specialization  String
+  employeeProfile ProfileLogin?
+  workingDays     EmployeeWorkingDays[] //(e.g., "Monday", "Tuesday", etc.).
+  workingHours    EmployeeWorkingHours[] //"9:00 AM - 1:00 PM", "2:00 PM - 6:00 PM", etc
+  itemsChecked    CheckedItems[]
+  writtenInvoices Invoice[]
+  visits          Visit[]
+}
+
+model EmployeeWorkingDays {
+  day         String
+  WorkingDays Employee @relation(fields: [EmployeeSsn], references: [EmployeeSSN])
+  EmployeeSsn String   @unique
+}
+
+model EmployeeWorkingHours {
+  shift        String
+  WorkingHours Employee @relation(fields: [EmployeeSsn], references: [EmployeeSSN])
+  EmployeeSsn  String   @unique
+}
+
+model ProfileLogin {
+  LoginId         Int   @id @default(autoincrement())
+  username        String
+  password        String
+  userType        String
+  EmployeeProfile Employee? @relation(fields: [employeeSsn], references: [EmployeeSSN])
+  DentistProfile  Dentist?  @relation(fields: [dentistSsn], references: [DentistSSN])
+  PatientProfile  Patient?  @relation(fields: [patientId], references: [patientID])
+  employeeSsn     String?   @unique
+  dentistSsn      String?   @unique
+  patientId       Int?      @unique
+}
+
+model Invoice {
+  BillingId         Int                @id @unique
+  Date              DateTime
+  ProvidedServices  ServicesProvided[]
+  InsuranceCompany  String
+  TotalCost         Float
+  InsuranceCoverage Float
+  Writes            Employee           @relation(fields: [EmployeeSsn], references: [EmployeeSSN])
+  EmployeeSsn       String             @unique
+  Pays              Patient            @relation(fields: [paidBySsn], references: [PatientSSN])
+  paidBySsn         String
+}
+
+model ServicesProvided {
+  ServiceName         String //X-Ray, Clinical Examination, procedure, treatment plan
+  ServiceCost         Float
+  ProvidedSerivceCost Invoice @relation(fields: [ServiceId], references: [BillingId])
+  ServiceId           Int     @unique
+}
+
+model Item {
+  ItemID      Int            @id @default(autoincrement())
+  Name        String
+  Description String
+  Cost        Float
+  Checks      CheckedItems[]
+}
+
+model CheckedItems {
+  Supplier    String
+  Quantity    Int
+  CheckDate   DateTime @default(now())
+  Item        Item     @relation(fields: [ItemID], references: [ItemID])
+  ItemID      Int      @unique
+  CheckedBy   Employee @relation(fields: [EmployeeSsn], references: [EmployeeSSN])
+  EmployeeSsn String   @unique
+}
+
+model Visit {
+  id             Int      @id @default(autoincrement())
+  date           DateTime
+  time           String
+  status         String //Scheduled, Completed, Cancelled
+  reason         String //--------not sure about it------
+  numberOfVisits Int //---------we do not need it, could be derived from "id"-------
+  Reserve        Patient  @relation(fields: [patientId], references: [patientID])
+  patientId      Int
+  Sets           Dentist? @relation(fields: [dentistSsn], references: [DentistSSN])
+  dentistSsn     String?
+  Records        Employee @relation(fields: [employeeSsn], references: [EmployeeSSN])
+  employeeSsn    String
+}
+
+model Procedure {
+  id             Int     @id @default(autoincrement())
+  name           String
+  description    String?
+  cost           Float
+  ProceduresMade Dentist @relation(fields: [DentistSsn], references: [DentistSSN])
+  DentistSsn     String  @unique
+  DoneProcedures Patient @relation(fields: [PatientId], references: [patientID])
+  PatientId      Int  @unique
+}
